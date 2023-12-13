@@ -13,99 +13,77 @@ inputHandle.close();
 
 const binToStr = (bin) => bin.toString(2).split('').reverse().join('');
 
-let dbgm = false;
+// let dbg = true; /*
+let dbg = false; //*/
 
 const matchWithBinMasks = (bin, binMasks, len = 0) => {
-	const lenMask = 2n**BigInt(len) - 1n;
+	const lenMask = 2n ** BigInt(len) - 1n;
+	if (dbg) {
+		console.log('-----dbg-----');
+		console.log('bin:', binToStr(bin));
+		console.log(Object.values(binMasks).map(v => binToStr(v)).join('\n'));
+		console.log('len:', len, binToStr(lenMask));
+		console.log('-----dbg-----');
+	}
 	let result = bin;
-
-	if (dbgm) console.log('dbgm', binToStr(bin), ...Object.values(binMasks).map(v => binToStr(v)), len, binToStr(lenMask));
-	if (dbgm) console.log('dbgm', binToStr(result));
-
 	result = result | binMasks['#'];
-
-	if (dbgm) console.log('dbgm', binToStr(result));
-
 	result = result & binMasks['.'];
-
-	if (dbgm) console.log('dbgm', binToStr(result & lenMask), binToStr(bin & lenMask));
-
 	if (len > 0) {
-		const tmp = (result & lenMask) === (bin & lenMask);
-
-		if (dbgm) console.log('dbgm', tmp)
-		dbgm = false;
-
-		return tmp;
+		return (result & lenMask) === (bin & lenMask);
 	}
 	return result === bin;
 }
 
-let output = 0;
+let output = 0n;
+
+const recursiveSolutionFinder = (
+	binMasks,
+	lens,
+	space,
+	lenIndex = 0,
+	prevVal = 0n,
+	prevLen = 0
+) => {
+	const len = lens[lenIndex];
+
+	let value = (2n ** BigInt(len) - 1n) << BigInt(prevLen);
+
+	for (let i = 0; i <= space - len - prevLen; i++) {
+		if (matchWithBinMasks(value + prevVal, binMasks, len + prevLen + i + 1)) {
+			if (lenIndex + 1 < lens.length) {
+				recursiveSolutionFinder(
+					binMasks,
+					lens,
+					space + lens[lenIndex + 1] + 1,
+					lenIndex + 1,
+					value + prevVal,
+					len + prevLen + i + 1
+				);
+			} else {
+				output++;
+			}
+		}
+		value = value << 1n;
+	}
+}
 
 for (let lineIndex = 0; lineIndex < input.length; lineIndex++) {
 	const line = input[lineIndex];
 	const splitStr = ('?' + line[0]).repeat(5).substring(1).split('');
 	const binMasks = {
-		'#': splitStr.reduce((l, c, i) => c !== '#' ? l : l + 2n**BigInt(i), 0n),
-		'.': splitStr.reduce((l, c, i) => c === '.' ? l : l + 2n**BigInt(i), 0n)
+		'#': splitStr.reduce((l, c, i) => c !== '#' ? l : l + 2n ** BigInt(i), 0n),
+		'.': splitStr.reduce((l, c, i) => c === '.' ? l : l + 2n ** BigInt(i), 0n)
 	};
 	const lens = (',' + line[1]).repeat(5).substring(1).split(',').map(v => +v);
+
+	console.log(output);
 	console.log(((lineIndex + 1) + '/' + input.length).padStart(9), '\t', splitStr.join('').padEnd(30), lens);
-	const dodbg = false;//lens.length === 4 && lens[0] === 1 && lens[1] === 1 && lens[2] === 1 && lens[3] === 3 && line[0] === '.?????#?.???';
 
-	let lastTemp = null;
-	for (let lenIndex = 0; lenIndex < lens.length; lenIndex++) {
-		const len = lens[lenIndex];
-		const temp = [];
-		const space = splitStr.length - lens.reduce((l, c, i, a) => i <= lenIndex ? l : l + c + 1, 0);
-
-		if (lastTemp === null) {
-			let value = 2n**BigInt(len) - 1n;
-			for (let i = 0; i <= space - len; i++) {
-				if (matchWithBinMasks(value, binMasks, len + i + 1)) temp.push({ len: i + len, val: value });
-				value = value << 1n;
-			}
-			lastTemp = temp;
-			continue;
-		}
-
-		if (lastTemp.length === 0) {
-			const dgbLen = splitStr.length;
-			console.log('lens:', ...lens);
-			console.log('lenIndex:', lenIndex);
-			console.log('str:', '\n' + splitStr.join(''));
-			console.log('masks:', '\n' + binToStr(binMasks['#']).padEnd(dgbLen, '0'), '\n' + binToStr(binMasks['.']).padEnd(dgbLen, '0'));
-			console.log(''.padStart(dgbLen, '-'))
-			// console.log(lastTemp.map(v => binToStr(v.val).padEnd(dgbLen, '0')).join('\n'));
-			console.log(lastTemp.length, output);
-
-			throw new Error('No solutions found.');
-		}
-
-		for (const start of lastTemp) {
-			const prevLen = start.len + 1;
-			let value = (2n**BigInt(len) - 1n) << BigInt(prevLen);
-
-			if (dodbg) console.log('b', space, len, prevLen);
-
-			for (let i = 0; i <= space - len - prevLen; i++) {
-
-				if (dodbg) {
-					console.log('a', len, i, binToStr(value));
-					console.log('a', binToStr(binMasks['#']), '\n' + binToStr(binMasks['.']));
-					dbgm = true;
-				}
-
-				if (matchWithBinMasks(value + start.val, binMasks, len + i + prevLen + 1)) temp.push({ len: i + len + prevLen, val: value + start.val });
-				value = value << 1n;
-			}
-		}
-
-		lastTemp = temp;
-	}
-
-	output += lastTemp.length;
+	recursiveSolutionFinder(
+		binMasks,
+		lens,
+		splitStr.length - lens.reduce((l, c, i) => i < 1 ? l : l + c + 1, 0)
+	);
 }
 
 console.log(output);
